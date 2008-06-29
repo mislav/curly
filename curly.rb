@@ -1,14 +1,38 @@
 require 'rubygems'
+require 'uri'
 require 'curb'
 gem 'activesupport', '>= 2.1'
 require 'active_support/basic_object'
 require 'hpricot'
+require 'iconv'
 
 class Curly < ActiveSupport::BasicObject
-  def initialize(url = nil)
-    @curl = Curl::Easy.new(url)
+  attr_reader :uri
+  
+  def initialize(uri = nil)
+    @curl = Curl::Easy.new
+    self.uri = uri
     self.follow_location = true
     yield self if block_given?
+  end
+  
+  def uri=(obj)
+    case obj
+    when String
+      unless @uri
+        @uri = URI.parse(obj)
+      else
+        @uri += obj
+      end
+    when URI::HTTP
+      @uri = obj
+    when nil
+      return
+    else
+      raise "unsupported URI type (#{obj.class.name} given)"
+    end
+    
+    self.url = @uri.to_s
   end
   
   def method_missing(method, *args, &block)
@@ -20,8 +44,27 @@ class Curly < ActiveSupport::BasicObject
     @curl.cookiejar = filename
   end
   
-  def get
+  def get(uri = nil)
+    self.uri = uri
     http_get
+    raise "expected 2xx, got #{response_code} (GET #{url})" unless success?
+    self
+  end
+  
+  def success?
+    response_code >= 200 and response_code < 300
+  end
+  
+  def doc
+    Hpricot body_unicode
+  end
+  
+  def body_unicode
+    body = body_str
+    if body =~ /;\s*charset=([\w-]+)\s*['"]/ and $1.downcase != 'utf-8'
+      body = Iconv.conv('UTF-8', $1, body)
+    end
+    body
   end
   
   def self.get_document(url)
@@ -31,7 +74,11 @@ class Curly < ActiveSupport::BasicObject
   end
   
   def self.parse_curl(object)
-    Hpricot(object.body_str)
+    body = object.body_str
+    if body =~ /;\s*charset=([\w-]+)\s*['"]/ and $1.downcase != 'utf-8'
+      body = Iconv.conv('UTF-8', $1, body)
+    end
+    Hpricot(body)
   end
   
   def post(params)
