@@ -61,24 +61,19 @@ class Curly < ActiveSupport::BasicObject
   
   def body_unicode
     body = body_str
-    if body =~ /;\s*charset=([\w-]+)\s*['"]/ and $1.downcase != 'utf-8'
-      body = Iconv.conv('UTF-8', $1, body)
+    if encoding and encoding != 'utf-8'
+      body = Iconv.conv('UTF-8', encoding, body)
     end
     body
   end
   
-  def self.get_document(url)
-    curl = new(url)
-    curl.get
-    parse_curl curl
-  end
-  
-  def self.parse_curl(object)
-    body = object.body_str
-    if body =~ /;\s*charset=([\w-]+)\s*['"]/ and $1.downcase != 'utf-8'
-      body = Iconv.conv('UTF-8', $1, body)
+  def encoding
+    return @encoding unless @encoding == false
+    @encoding = if body_str =~ /;\s*charset=([\w-]+)\s*['"]/
+      $1.downcase
+    else
+      false
     end
-    Hpricot(body)
   end
   
   def post(params)
@@ -86,10 +81,6 @@ class Curly < ActiveSupport::BasicObject
       Curl::PostField.content(key.to_s, value.to_s)
     end
     http_post *fields
-  end
-  
-  def self.post(url, params)
-    new(url).post(params)
   end
   
   class Form
