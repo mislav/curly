@@ -1,3 +1,5 @@
+require 'rubygems'
+require 'curly'
 require 'spec'
 
 describe Curly do
@@ -16,24 +18,20 @@ describe Curly do
     @curly.should_receive(:http_post).with(field_arg, field_arg)
     @curly.post(:foo => 'bar', :baz => 'foo')
   end
-end
-
-describe Curly, "class methods" do
-  it "should post" do
-    curly = mock('Curly')
-    Curly.should_receive(:new).with('example.com').and_return(curly)
-    curly.should_receive(:post).with(:foo => 'bar')
-    
-    Curly.post('example.com', :foo => 'bar')
-  end
   
   it "should get document" do
-    curly = mock('Curly')
-    Curly.should_receive(:new).with('example.com').and_return(curly)
-    curly.should_receive(:get).with().and_return(true)
-    curly.should_receive(:body_str).and_return("<html><body>You are being <a href=\"http://localhost:3000/login\">redirected</a>.</body></html>")
+    @curly.should_receive(:http_get).with().and_return(true)
+    @curly.stub!(:response_code).and_return(200)
+    @curly.stub!(:body_str).and_return(<<-HTML)
+      <html>
+        <body>You are being
+          <a href=\"http://localhost:3000/login\">redirected</a>.
+        </body>
+      </html>
+    HTML
     
-    doc = Curly.get_document('example.com')
+    doc = @curly.get('http://example.com').doc
+    @curly.url.should == 'http://example.com'
     doc.class.should == Hpricot::Doc
     doc.at('a[@href]').inner_text.should == 'redirected'
   end

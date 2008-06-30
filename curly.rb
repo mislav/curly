@@ -59,14 +59,6 @@ class Curly < ActiveSupport::BasicObject
     Hpricot body_unicode
   end
   
-  def body_unicode
-    body = body_str
-    if encoding and encoding != 'utf-8'
-      body = Iconv.conv('UTF-8', encoding, body)
-    end
-    body
-  end
-  
   def encoding
     return @encoding unless @encoding == false
     @encoding = if body_str =~ /;\s*charset=([\w-]+)\s*['"]/
@@ -92,6 +84,17 @@ class Curly < ActiveSupport::BasicObject
       @node.search('input, button, select, textarea')
     end
   end
+  
+  protected
+  
+    def body_unicode
+      body = body_str
+      if encoding and encoding != 'utf-8'
+        body = Iconv.conv('UTF-8', encoding, body)
+      end
+      body
+    end
+    
 end
 
 Hpricot::Doc.class_eval do
